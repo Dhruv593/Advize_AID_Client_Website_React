@@ -121,6 +121,9 @@ function RouteEffects() {
 
       if (cancelled) return;
 
+      if (location.pathname === "/company") {
+        window.AIDCompanyJourneyInit?.();
+      }
       // Reinitialize animations on the newly mounted page.
       window.AIDMotionRefresh?.();
       window.AIDMotionPlusRefresh?.();

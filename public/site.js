@@ -138,98 +138,198 @@
 
 
 // STEP 2 — Company Journey: scroll-linked milestone progression and direct navigation.
+
+// STEP 2 — Company Journey: route-safe initialization.
 (() => {
-  const root = document.querySelector('.company-journey');
-  if (!root) return;
-  const sticky = root.querySelector('.journey-sticky');
-  const buttons = [...root.querySelectorAll('[data-milestone]')];
-  const kicker = root.querySelector('#journey-kicker');
-  const heading = root.querySelector('#company-journey-title');
-  const description = root.querySelector('#journey-description');
-  const copy = root.querySelector('.journey-copy');
-  const milestones = [
-    { label: 'MILESTONE 01', heading: 'Building the<br><em>groundwork.</em>', description: 'This space will tell the story of an important moment in AID’s development, using a client-approved date and milestone description.' },
-    { label: 'MILESTONE 02', heading: 'Turning plans<br><em>into progress.</em>', description: 'Add a verified milestone describing a significant stage in AID’s growth, project delivery, or development capability.' },
-    { label: 'MILESTONE 03', heading: 'Growing the<br><em>possibilities.</em>', description: 'Use this milestone to highlight an approved achievement, expansion, or development in the company’s story.' },
-    { label: 'MILESTONE 04', heading: 'Looking toward<br><em>what comes next.</em>', description: 'Close the timeline with a confirmed milestone that connects AID’s experience to its future direction.' }
-  ];
-  let activeIndex = -1;
-  let rafPending = false;
-  let animationTimer;
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const initCompanyJourney = () => {
+    const root = document.querySelector('.company-journey');
+    if (!root) return;
 
-  const setActive = (index, animate = true) => {
-    index = Math.max(0, Math.min(milestones.length - 1, index));
-    if (index === activeIndex) return;
-    activeIndex = index;
-    const item = milestones[index];
-    buttons.forEach((button, buttonIndex) => {
-      const active = buttonIndex === index;
-      button.classList.toggle('is-active', active);
-      if (active) button.setAttribute('aria-current', 'step');
-      else button.removeAttribute('aria-current');
+    // Prevent duplicate initialization on the same mounted section.
+    if (root.dataset.journeyReady === 'true') return;
+    root.dataset.journeyReady = 'true';
+
+    const sticky = root.querySelector('.journey-sticky');
+    const buttons = [...root.querySelectorAll('[data-milestone]')];
+    const kicker = root.querySelector('#journey-kicker');
+    const heading = root.querySelector('#company-journey-title');
+    const description = root.querySelector('#journey-description');
+    const copy = root.querySelector('.journey-copy');
+
+    const milestones = [
+      {
+        label: 'MILESTONE 01',
+        heading: 'Building the<br><em>groundwork.</em>',
+        description: 'This space will tell the story of an important moment in AID’s development, using a client-approved date and milestone description.'
+      },
+      {
+        label: 'MILESTONE 02',
+        heading: 'Turning plans<br><em>into progress.</em>',
+        description: 'Add a verified milestone describing a significant stage in AID’s growth, project delivery, or development capability.'
+      },
+      {
+        label: 'MILESTONE 03',
+        heading: 'Growing the<br><em>possibilities.</em>',
+        description: 'Use this milestone to highlight an approved achievement, expansion, or development in the company’s story.'
+      },
+      {
+        label: 'MILESTONE 04',
+        heading: 'Looking toward<br><em>what comes next.</em>',
+        description: 'Close the timeline with a confirmed milestone that connects AID’s experience to its future direction.'
+      }
+    ];
+
+    let activeIndex = -1;
+    let rafPending = false;
+    let animationTimer;
+
+    const reducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+
+    const setActive = (index, animate = true) => {
+      index = Math.max(0, Math.min(milestones.length - 1, index));
+
+      if (index === activeIndex) return;
+
+      activeIndex = index;
+
+      const item = milestones[index];
+
+      buttons.forEach((button, buttonIndex) => {
+        const active = buttonIndex === index;
+
+        button.classList.toggle('is-active', active);
+
+        if (active) {
+          button.setAttribute('aria-current', 'step');
+        } else {
+          button.removeAttribute('aria-current');
+        }
+      });
+
+      const year =
+        buttons[index]?.querySelector('span')?.textContent?.trim()
+        || 'YEAR TO CONFIRM';
+
+      kicker.innerHTML =
+        `${item.label} <span>· ${year === '20XX' ? 'YEAR TO CONFIRM' : year}</span>`;
+
+      heading.innerHTML = item.heading;
+      description.textContent = item.description;
+
+      copy.classList.remove('is-transitioning');
+      clearTimeout(animationTimer);
+
+      if (animate && !reducedMotion) {
+        requestAnimationFrame(() => {
+          copy.classList.add('is-transitioning');
+        });
+
+        animationTimer = setTimeout(() => {
+          copy.classList.remove('is-transitioning');
+        }, 480);
+      }
+    };
+
+    const updateFromScroll = () => {
+      rafPending = false;
+
+      if (reducedMotion || !sticky) return;
+
+      const rect = root.getBoundingClientRect();
+      const travel = Math.max(1, root.offsetHeight - sticky.offsetHeight);
+
+      const progress = Math.max(
+        0,
+        Math.min(1, -rect.top / travel)
+      );
+
+      const index = Math.min(
+        milestones.length - 1,
+        Math.round(progress * (milestones.length - 1))
+      );
+
+      setActive(index, true);
+    };
+
+    const requestUpdate = () => {
+      if (rafPending) return;
+
+      rafPending = true;
+      requestAnimationFrame(updateFromScroll);
+    };
+
+    buttons.forEach((button, index) => {
+      button.addEventListener('keydown', (event) => {
+        let nextIndex = null;
+
+        if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+          nextIndex = (index + 1) % buttons.length;
+        } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+          nextIndex = (index - 1 + buttons.length) % buttons.length;
+        } else if (event.key === 'Home') {
+          nextIndex = 0;
+        } else if (event.key === 'End') {
+          nextIndex = buttons.length - 1;
+        }
+
+        if (nextIndex !== null) {
+          event.preventDefault();
+          buttons[nextIndex].focus();
+          buttons[nextIndex].click();
+        }
+      });
+
+      button.addEventListener('click', () => {
+        if (!reducedMotion && sticky) {
+          const rect = root.getBoundingClientRect();
+          const travel = Math.max(1, root.offsetHeight - sticky.offsetHeight);
+
+          const targetProgress = index / (milestones.length - 1);
+          const targetY =
+            window.scrollY + rect.top + targetProgress * travel;
+
+          window.scrollTo({
+            top: targetY,
+            behavior: 'smooth'
+          });
+        } else {
+          setActive(index, true);
+        }
+      });
     });
-    const year = buttons[index]?.querySelector('span')?.textContent?.trim() || 'YEAR TO CONFIRM';
-    kicker.innerHTML = `${item.label} <span>· ${year === '20XX' ? 'YEAR TO CONFIRM' : year}</span>`;
-    heading.innerHTML = item.heading;
-    description.textContent = item.description;
-    copy.classList.remove('is-transitioning');
-    clearTimeout(animationTimer);
-    if (animate && !reducedMotion) {
-      requestAnimationFrame(() => copy.classList.add('is-transitioning'));
-      animationTimer = setTimeout(() => copy.classList.remove('is-transitioning'), 480);
+
+    // Remove previous route listeners before registering new ones.
+    if (window.__aidCompanyJourneyScroll) {
+      window.removeEventListener(
+        'scroll',
+        window.__aidCompanyJourneyScroll
+      );
     }
+
+    if (window.__aidCompanyJourneyResize) {
+      window.removeEventListener(
+        'resize',
+        window.__aidCompanyJourneyResize
+      );
+    }
+
+    window.__aidCompanyJourneyScroll = requestUpdate;
+    window.__aidCompanyJourneyResize = requestUpdate;
+
+    window.addEventListener('scroll', requestUpdate, { passive: true });
+    window.addEventListener('resize', requestUpdate, { passive: true });
+
+    setActive(0, false);
+    requestUpdate();
   };
 
-  const updateFromScroll = () => {
-    rafPending = false;
-    if (reducedMotion || !sticky) return;
-    const rect = root.getBoundingClientRect();
-    const travel = Math.max(1, root.offsetHeight - sticky.offsetHeight);
-    const progress = Math.max(0, Math.min(1, -rect.top / travel));
-    const index = Math.min(milestones.length - 1, Math.round(progress * (milestones.length - 1)));
-    setActive(index, true);
-  };
-  const requestUpdate = () => {
-    if (rafPending) return;
-    rafPending = true;
-    requestAnimationFrame(updateFromScroll);
-  };
+  // Expose the initializer so React Router can call it after mounting.
+  window.AIDCompanyJourneyInit = initCompanyJourney;
 
-  buttons.forEach((button, index) => {
-    button.addEventListener('keydown', (event) => {
-      let nextIndex = null;
-      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') nextIndex = (index + 1) % buttons.length;
-      else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') nextIndex = (index - 1 + buttons.length) % buttons.length;
-      else if (event.key === 'Home') nextIndex = 0;
-      else if (event.key === 'End') nextIndex = buttons.length - 1;
-      if (nextIndex !== null) {
-        event.preventDefault();
-        buttons[nextIndex].focus();
-        buttons[nextIndex].click();
-      }
-    });
-    button.addEventListener('click', () => {
-      if (!reducedMotion && sticky) {
-        const rect = root.getBoundingClientRect();
-        const travel = Math.max(1, root.offsetHeight - sticky.offsetHeight);
-        const targetProgress = index / (milestones.length - 1);
-        const targetY = window.scrollY + rect.top + targetProgress * travel;
-        window.scrollTo({ top: targetY, behavior: 'smooth' });
-      } else {
-        setActive(index, true);
-      }
-    });
-  });
-
-  if (window.__aidCompanyJourneyScroll) window.removeEventListener('scroll', window.__aidCompanyJourneyScroll);
-  if (window.__aidCompanyJourneyResize) window.removeEventListener('resize', window.__aidCompanyJourneyResize);
-  window.__aidCompanyJourneyScroll = requestUpdate;
-  window.__aidCompanyJourneyResize = requestUpdate;
-  window.addEventListener('scroll', requestUpdate, { passive: true });
-  window.addEventListener('resize', requestUpdate, { passive: true });
-  setActive(0, false);
-  requestUpdate();
+  // Also support the original static HTML page.
+  initCompanyJourney();
 })();
 
 
