@@ -1,0 +1,2 @@
+import { Link } from 'react-router-dom';
+export default function Footer(){ return <footer className="site-footer"><Link className="brand-word" to="/">AID<span>•</span></Link><span className="footer-desc">AFRICA INFRASTRUCTURES DÉVELOPPEMENT</span><button type="button" onClick={() => window.scrollTo({top:0,behavior:'smooth'})}>BACK TO TOP ↑</button><small>© <span data-year=""></span> AID · WEBSITE STRUCTURE DRAFT</small></footer>; }

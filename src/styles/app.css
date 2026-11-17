@@ -1,0 +1,3 @@
+/* React integration fixes; original visual styling remains in the source CSS files. */
+html { scroll-behavior: auto; }
+.home-video { object-fit: cover; object-position: center top; }

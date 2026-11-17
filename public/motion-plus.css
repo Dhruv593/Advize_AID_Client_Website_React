@@ -1,0 +1,224 @@
+/* ==========================================================================
+   AID — motion-plus (additive polish layer)
+   Loaded after motion.css. Pure enhancement: delete motion-plus.css,
+   motion-plus.js and their head tags and the site is exactly as before.
+
+   What it adds
+     1  scroll progress bar            thin orange rail along the top
+     2  page transition curtain        4-column ink shutter between pages
+     3  eyebrow rule draw              the little orange dash draws itself
+     4  card settle                    cards tip up out of 3D as they enter
+     5  card hover "drawing" accents   orange top trace + corner crosshair
+     6  button hover                   dark buttons fill orange, CTAs lift
+   Never touches the home building / lift journey or the company journey.
+   ========================================================================== */
+
+:root {
+  --mp-orange: #f47721;
+  --mp-ink: #0d1510;
+  --mp-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --mp-io: cubic-bezier(0.76, 0, 0.24, 1);
+}
+
+/* ---------- 1. Scroll progress ------------------------------------------ */
+.mp-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 1100;
+  pointer-events: none;
+  background: rgba(23, 34, 26, 0.06);
+}
+.mp-progress i {
+  display: block;
+  height: 100%;
+  background: var(--mp-orange);
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+/* ---------- 2. Page transition curtain ---------------------------------- */
+/* The curtain replaces motion.css's cross-document crossfade (the two would fight:
+   the crossfade pins the header above the curtain). Last @view-transition rule wins. */
+@view-transition { navigation: none; }
+
+/* Leaving: four ink columns rise from the bottom. */
+.mp-shutter {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  pointer-events: none;
+  visibility: hidden;
+}
+.mp-shutter b {
+  background: var(--mp-ink);
+  transform: scaleY(0);
+  transform-origin: bottom center;
+  transition: transform 0.42s var(--mp-io);
+}
+.mp-shutter b:nth-child(2) { transition-delay: 0.04s; }
+.mp-shutter b:nth-child(3) { transition-delay: 0.08s; }
+.mp-shutter b:nth-child(4) { transition-delay: 0.12s; }
+.mp-shutter.is-closing { visibility: visible; pointer-events: auto; }
+.mp-shutter.is-closing b { transform: scaleY(1); }
+
+/* Arriving: the next page starts covered, then the curtain lifts away upward.
+   The failsafe animation guarantees the cover can never get stuck. */
+html.mp-enter::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483001;
+  background: var(--mp-ink);
+  pointer-events: none;
+  transform-origin: top center;
+  transition: transform 0.65s var(--mp-io);
+  animation: mp-failsafe 0.01s linear 2.6s forwards;
+}
+html.mp-enter.mp-reveal::before { transform: scaleY(0); }
+@keyframes mp-failsafe { to { visibility: hidden; } }
+
+/* link-styled buttons never underline (one careers button had no reset) */
+a.button-primary, a.button-dark { text-decoration: none; }
+
+/* ---------- 3. Eyebrow rule draws itself --------------------------------- */
+.js-motion .eyebrow[data-m] i {
+  transform-origin: left center;
+  transition: scale 0.9s var(--mp-out) 0.12s;
+}
+.js-motion .eyebrow[data-m]:not(.is-in) i { scale: 0 1; }
+
+/* ---------- 4. Card settle (rise + slight 3D tip) ------------------------ */
+.js-motion [data-m="pop"].is-in {
+  animation-name: mp-settle;
+  animation-duration: 0.95s;
+}
+@keyframes mp-settle {
+  from {
+    opacity: 0;
+    translate: 0 34px;
+    scale: 0.965;
+    transform: perspective(1000px) rotateX(5deg);
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+    transform: perspective(1000px) rotateX(0deg);
+  }
+}
+
+/* ---------- 5. Card hover accents + 6. Buttons (hover devices only) ------ */
+@media (hover: hover) and (pointer: fine) {
+  .values-grid article,
+  .sector-card,
+  .home-project-card,
+  .client-project-card,
+  .upcoming-card,
+  .fleet-spec-grid article,
+  .project-card {
+    position: relative;
+  }
+
+  /* orange trace along the top edge */
+  .values-grid article::before,
+  .sector-card::before,
+  .home-project-card::before,
+  .client-project-card::before,
+  .upcoming-card::before,
+  .fleet-spec-grid article::before,
+  .project-card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 3px;
+    background: var(--mp-orange);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.5s var(--mp-out);
+    pointer-events: none;
+    z-index: 3;
+  }
+  /* corner crosshair, like a drawing registration mark */
+  .values-grid article::after,
+  .sector-card::after,
+  .home-project-card::after,
+  .client-project-card::after,
+  .upcoming-card::after,
+  .fleet-spec-grid article::after,
+  .project-card::after {
+    content: "+";
+    position: absolute;
+    top: 9px;
+    right: 11px;
+    font: 600 12px/1 "DM Mono", monospace;
+    color: var(--mp-orange);
+    opacity: 0;
+    scale: 0.5;
+    rotate: -45deg;
+    transition: opacity 0.3s ease, scale 0.4s var(--mp-out), rotate 0.4s var(--mp-out);
+    pointer-events: none;
+    z-index: 3;
+  }
+  .values-grid article:hover::before,
+  .sector-card:hover::before,
+  .home-project-card:hover::before,
+  .client-project-card:hover::before,
+  .upcoming-card:hover::before,
+  .fleet-spec-grid article:hover::before,
+  .project-card:hover::before { transform: scaleX(1); }
+  .values-grid article:hover::after,
+  .sector-card:hover::after,
+  .home-project-card:hover::after,
+  .client-project-card:hover::after,
+  .upcoming-card:hover::after,
+  .fleet-spec-grid article:hover::after,
+  .project-card:hover::after { opacity: 1; scale: 1; rotate: 0deg; }
+
+  /* portfolio cards get the same lift the other cards already have */
+  .client-project-card,
+  .project-card {
+    transition: transform 0.4s var(--m-ease, ease), box-shadow 0.4s ease;
+  }
+  .client-project-card:hover,
+  .project-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 16px 36px rgba(20, 35, 26, 0.1);
+  }
+
+  /* dark buttons fill with orange from the left; orange buttons deepen */
+  .button-dark {
+    background-image: linear-gradient(var(--mp-orange), var(--mp-orange));
+    background-repeat: no-repeat;
+    background-position: left center;
+    background-size: 0% 100%;
+    transition: background-size 0.45s var(--mp-out), color 0.3s ease,
+      translate 0.3s var(--m-ease, ease), box-shadow 0.3s ease, filter 0.25s ease;
+  }
+  .button-dark:hover { background-size: 100% 100%; color: #072332; }
+  .button-primary { transition: background-color 0.3s ease, translate 0.3s var(--m-ease, ease), box-shadow 0.3s ease, filter 0.25s ease; }
+  .button-primary:hover { background-color: #ec6c14; }
+  .header-cta { transition: border-color 0.3s ease, color 0.3s ease; }
+  .header-cta:hover { border-color: var(--mp-orange); }
+
+  /* magnetic buttons follow the cursor a little (set inline by motion-plus.js) */
+  .button-primary.mp-mag, .button-dark.mp-mag { transition-duration: 0.18s; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-progress, .mp-shutter { display: none !important; }
+  html.mp-enter::before { display: none !important; }
+  .js-motion .eyebrow[data-m] i { transition: none; scale: 1 1 !important; }
+  .js-motion [data-m="pop"].is-in { animation: none !important; }
+}
+@media print {
+  .mp-progress, .mp-shutter { display: none !important; }
+  html.mp-enter::before { display: none !important; }
+}

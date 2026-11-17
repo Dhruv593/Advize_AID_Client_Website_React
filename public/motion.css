@@ -1,0 +1,734 @@
+/* ==========================================================================
+   AID — motion layer (v2)
+   Loaded after styles.css, driven by motion.js. Purely additive: delete
+   motion.css + motion.js (and the three head tags) and the site is exactly
+   the static site again.
+
+   Rules of the road
+   · Hidden "pre-reveal" states exist only while html.js-motion is set, which
+     motion.js adds after it has prepared the page. No JS → nothing is hidden.
+   · Reveals/hover use the individual transform properties (translate / scale /
+     rotate) and clip-path, so the existing `transform` hover rules in
+     styles.css keep working untouched.
+   · Never touches #construction-journey (building + lift) or .company-journey.
+   · prefers-reduced-motion: motion.js does not run; the block at the bottom
+     also hard-resets everything as a second line of defence.
+
+   Patterns (data-m values, set by motion.js)
+     head    masked word-by-word rise           h1 / h2
+     rise    short fade + rise                  paragraphs, labels, buttons
+     pop     rise + soft scale                  cards
+     row     horizontal slide-in                list rows (fleet, locations, steps)
+     slide   side entrance (data-dir)           contact card, upcoming cards
+     curtain image wipe + settle (data-dir)     large imagery / video
+     wipe    left-to-right clip wipe            Careers display type
+     draw    SVG line draw + idle motion        page-hero line art
+     sky     buildings grow from the ground     CTA bands
+   Scroll-linked (data-scrub): rule · parallax · drift · hero · active rows
+   ========================================================================== */
+
+:root {
+  --m-orange: #f47721;
+  --m-green: #248548;
+  --m-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --m-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --m-sx: 44px; /* horizontal travel for side entrances */
+}
+
+/* ---------- 0. First-paint guard ---------------------------------------
+   The head script adds html.m-pre so hero copy is not painted before it can
+   animate in. motion.js removes it. If JS never arrives the animation below
+   un-hides everything after 2.6 s, so the page can never stay blank.       */
+html.m-pre .home-content > *,
+html.m-pre .page-hero > * {
+  opacity: 0;
+  animation: m-unhide 0.01s linear 2.6s forwards;
+}
+@keyframes m-unhide { to { opacity: 1; } }
+
+/* ---------- 1. Page-to-page crossfade (progressive enhancement) ----------
+   Cross-document view transitions: Chrome/Edge 126+, Safari 18.2+. Other
+   browsers simply navigate normally. The header is pinned so only the page
+   body fades.                                                               */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  .site-header { view-transition-name: aid-header; }
+  ::view-transition-old(root) { animation: 0.2s ease both m-vt-out; }
+  ::view-transition-new(root) { animation: 0.36s ease both m-vt-in; }
+}
+@keyframes m-vt-out { to { opacity: 0; } }
+@keyframes m-vt-in { from { opacity: 0; } }
+
+/* ---------- 2. Reveal patterns ----------------------------------------- */
+
+/* head — masked word rise */
+/* !important: page rules such as `.contact-card span {…}` must not restyle word spans */
+.m-w {
+  display: inline-block !important;
+  overflow: hidden;
+  vertical-align: top;
+  padding: 0.2em 0.14em 0.2em 0 !important;
+  margin: -0.2em -0.14em -0.2em 0 !important;
+  font: inherit !important;
+  letter-spacing: inherit !important;
+  text-transform: inherit !important;
+  color: inherit !important;
+  background: none !important;
+  position: static !important;
+}
+.m-wi {
+  display: inline-block !important;
+  transform-origin: 0 100%;
+  font: inherit !important;
+  letter-spacing: inherit !important;
+  text-transform: inherit !important;
+  color: inherit !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.js-motion [data-m="head"]:not(.is-in) .m-wi { translate: 0 125%; rotate: 4deg; }
+.js-motion [data-m="head"].is-in .m-wi {
+  animation: m-word 1s var(--m-out) backwards;
+  animation-delay: calc(var(--d, 0ms) + var(--i, 0) * 55ms);
+}
+@keyframes m-word {
+  from { translate: 0 125%; rotate: 4deg; }
+  to { translate: 0 0; rotate: 0deg; }
+}
+
+/* rise — paragraphs, labels, buttons */
+.js-motion [data-m="rise"]:not(.is-in) { opacity: 0; translate: 0 22px; }
+.js-motion [data-m="rise"].is-in {
+  animation: m-rise 0.85s var(--m-out) backwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes m-rise {
+  from { opacity: 0; translate: 0 22px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+/* pop — cards */
+.js-motion [data-m="pop"]:not(.is-in) { opacity: 0; translate: 0 30px; scale: 0.965; }
+.js-motion [data-m="pop"].is-in {
+  animation: m-pop 0.95s var(--m-out) backwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes m-pop {
+  from { opacity: 0; translate: 0 30px; scale: 0.965; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+/* card imagery settles from a slight zoom */
+.js-motion [data-m="pop"].is-in img,
+.js-motion [data-m="slide"].is-in .upcoming-visual img {
+  animation: m-settle 1.5s var(--m-out) backwards;
+  animation-delay: var(--d, 0ms);
+}
+
+/* row — list rows slide in from the left */
+.js-motion [data-m="row"]:not(.is-in) { opacity: 0; translate: -26px 0; }
+.js-motion [data-m="row"].is-in {
+  animation: m-row 0.85s var(--m-out) backwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes m-row {
+  from { opacity: 0; translate: -26px 0; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+/* slide — side entrance */
+.js-motion [data-m="slide"][data-dir="left"]:not(.is-in) { opacity: 0; translate: calc(var(--m-sx) * -1) 0; }
+.js-motion [data-m="slide"][data-dir="right"]:not(.is-in) { opacity: 0; translate: var(--m-sx) 0; }
+.js-motion [data-m="slide"].is-in {
+  animation: m-slide-l 1s var(--m-out) backwards;
+  animation-delay: var(--d, 0ms);
+}
+.js-motion [data-m="slide"][data-dir="right"].is-in { animation-name: m-slide-r; }
+@keyframes m-slide-l {
+  from { opacity: 0; translate: calc(var(--m-sx) * -1) 0; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes m-slide-r {
+  from { opacity: 0; translate: var(--m-sx) 0; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+/* curtain — image / video wipe, direction-aware */
+.js-motion [data-m="curtain"]:not(.is-in) { clip-path: inset(0 0 100% 0); }
+.js-motion [data-m="curtain"][data-dir="left"]:not(.is-in) { clip-path: inset(0 100% 0 0); }
+.js-motion [data-m="curtain"][data-dir="right"]:not(.is-in) { clip-path: inset(0 0 0 100%); }
+.js-motion [data-m="curtain"].is-in {
+  animation: m-cur-up 1.2s var(--m-out) backwards;
+  animation-delay: var(--d, 0ms);
+}
+.js-motion [data-m="curtain"][data-dir="left"].is-in { animation-name: m-cur-left; }
+.js-motion [data-m="curtain"][data-dir="right"].is-in { animation-name: m-cur-right; }
+@keyframes m-cur-up { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes m-cur-left { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes m-cur-right { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 0); } }
+/* framed media: inner image settles; label tag slides in after the curtain */
+.js-motion [data-m="curtain"].is-in img,
+.js-motion [data-m="curtain"].is-in video {
+  animation: m-settle 1.7s var(--m-out) backwards;
+  animation-delay: var(--d, 0ms);
+}
+.js-motion [data-m="curtain"].is-in > span {
+  animation: m-label 0.7s var(--m-out) 0.7s backwards;
+}
+@keyframes m-settle {
+  from { scale: calc(var(--ps, 1) + 0.2); }
+  to { scale: var(--ps, 1); }
+}
+@keyframes m-label {
+  from { opacity: 0; translate: -14px 0; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+/* wipe — big display type */
+.js-motion [data-m="wipe"]:not(.is-in) { clip-path: inset(-0.12em 100% -0.12em 0); }
+.js-motion [data-m="wipe"].is-in {
+  animation: m-wipe 1.1s var(--m-out) backwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes m-wipe {
+  from { clip-path: inset(-0.12em 100% -0.12em 0); }
+  to { clip-path: inset(-0.12em 0 -0.12em 0); }
+}
+
+/* section-top: accent line draws under the label row */
+.js-motion .section-top[data-m] { position: relative; }
+.js-motion .section-top[data-m]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 96px;
+  height: 2px;
+  background: var(--m-orange);
+  transform-origin: left center;
+  pointer-events: none;
+}
+.js-motion .section-top[data-m]:not(.is-in)::after { transform: scaleX(0); }
+.js-motion .section-top[data-m].is-in::after { animation: m-line 1.1s var(--m-out) 0.2s backwards; }
+@keyframes m-line { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Buildings "rise" inside sector cards and the Company intro art */
+.js-motion .sector-card .sector-symbol i,
+.js-motion .company-index-art i { transform-origin: 50% 100%; }
+.js-motion .sector-card[data-m]:not(.is-in) .sector-symbol i,
+.js-motion .company-index-art[data-m]:not(.is-in) i { scale: 1 0; }
+.js-motion .sector-card[data-m].is-in .sector-symbol i,
+.js-motion .company-index-art[data-m].is-in i {
+  animation: m-grow 1s var(--m-out) backwards;
+  animation-delay: calc(var(--d, 0ms) + 350ms + var(--n, 0) * 120ms);
+}
+.sector-symbol i:nth-child(2), .company-index-art i:nth-of-type(2) { --n: 1; }
+.sector-symbol i:nth-child(3), .company-index-art i:nth-of-type(3) { --n: 2; }
+@keyframes m-grow { from { scale: 1 0; } to { scale: 1 1; } }
+
+/* 9.3 + 9.5 — draw-on architectural illustrations */
+.company-art-svg path, .sector-illustration path {
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+  transition: stroke-dashoffset 1.25s cubic-bezier(.16,1,.3,1);
+}
+.js-motion .company-index-art:not(.is-in) .company-art-svg path,
+.js-motion .sector-card:not(.is-in) .sector-illustration path { stroke-dashoffset: 420; }
+.js-motion .company-index-art.is-in .company-art-svg path,
+.js-motion .sector-card.is-in .sector-illustration path { stroke-dashoffset: 0; }
+.js-motion .company-index-art.is-in .company-art-svg path:nth-child(2),
+.js-motion .sector-card.is-in .sector-illustration path:nth-child(2) { transition-delay: .12s; }
+.js-motion .company-index-art.is-in .company-art-svg path:nth-child(3),
+.js-motion .sector-card.is-in .sector-illustration path:nth-child(3) { transition-delay: .24s; }
+@media (hover:hover) and (pointer:fine) {
+  .sector-illustration { transition: transform .55s cubic-bezier(.16,1,.3,1); }
+  .sector-card:hover .sector-illustration { transform: translateY(-3px) scale(1.035); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .company-art-svg path, .sector-illustration path { stroke-dashoffset: 0 !important; transition:none !important; }
+  .sector-illustration { transition:none !important; }
+}
+
+/* ---------- 3. Scroll-linked (values written by motion.js) -------------- */
+
+/* rule — an orange rule that fills as the row scrolls into view */
+.js-motion [data-scrub="rule"] { position: relative; }
+.js-motion [data-scrub="rule"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--m-orange);
+  transform-origin: left center;
+  transform: scaleX(var(--rp, 0));
+  pointer-events: none;
+}
+.js-motion [data-scrub="rule"][data-rule="top"]::after { top: -1px; }
+.js-motion [data-scrub="rule"][data-rule="bottom"]::after { bottom: -1px; }
+
+/* parallax — imagery drifts inside its frame */
+.js-motion [data-scrub="parallax"] { --ps: 1.14; }
+.js-motion [data-scrub="parallax"] img {
+  scale: var(--ps);
+  translate: 0 var(--py, 0px);
+  will-change: translate;
+}
+
+/* parallax frames clip the moving image */
+.js-motion [data-scrub="parallax"] { overflow: hidden; }
+
+/* drift — display lines slide sideways against the scroll */
+.js-motion [data-scrub="drift"] { translate: var(--dx, 0px) 0; }
+
+/* hero — copy lifts away slowly, art lags behind */
+.js-motion .page-hero > :not(.m-art),
+.js-motion .home-content { translate: 0 var(--hy, 0px); }
+.js-motion .home-video { scale: 1.1; translate: 0 var(--mp, 0px); will-change: translate; }
+.m-art { translate: 0 var(--ay, 0px); }
+
+/* active rows — the row nearest the viewport centre is "in focus" */
+.fleet-row { transition: background-color 0.4s ease; }
+.fleet-row b, .fleet-row i { transition: translate 0.4s var(--m-ease); }
+.fleet-row.is-active { background-color: rgba(255, 255, 255, 0.045); }
+.fleet-row.is-active b { translate: 10px 0; }
+.fleet-row.is-active i { translate: 4px -4px; }
+
+/* ---------- 4. Backgrounds ----------------------------------------------
+   One quiet motif per context, always behind content, always paused while
+   off-screen ([data-live] → .is-live toggled by IntersectionObserver).     */
+.js-motion [data-bg] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  overflow: clip;
+}
+.js-motion [data-bg]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+[data-live]:not(.is-live)::before,
+[data-live]:not(.is-live)::after,
+[data-live]:not(.is-live) .m-idle { animation-play-state: paused; }
+
+/* grid — blueprint paper + registration marks (page heroes) */
+.js-motion [data-bg="grid"]::before {
+  inset: -80px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cpath d='M80 0H0V80' fill='none' stroke='%23248548' stroke-opacity='.09'/%3E%3Cpath d='M40 36v8M36 40h8' fill='none' stroke='%23f47721' stroke-opacity='.35'/%3E%3C/svg%3E") 0 0 / 80px 80px;
+  translate: 0 var(--mp, 0px);
+  animation: m-drift-80 70s linear infinite;
+}
+.js-motion [data-bg="grid"]::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 1px;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--m-orange);
+  opacity: 0;
+  animation: m-scan 22s ease-in-out infinite;
+}
+@keyframes m-drift-80 { to { transform: translate3d(80px, 80px, 0); } }
+@keyframes m-scan {
+  0% { translate: 0 0; opacity: 0; }
+  8% { opacity: 0.32; }
+  92% { opacity: 0.32; }
+  100% { translate: calc(100vw - 1px) 0; opacity: 0; }
+}
+
+/* grid-light — same paper in white, for dark / green bands */
+.js-motion [data-bg="grid-light"]::before {
+  inset: -64px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cpath d='M64 0H0V64' fill='none' stroke='%23ffffff' stroke-opacity='.065'/%3E%3C/svg%3E") 0 0 / 64px 64px;
+  animation: m-drift-64 60s linear infinite;
+}
+@keyframes m-drift-64 { to { transform: translate3d(64px, 64px, 0); } }
+
+/* dots — survey points, faded toward one corner (light sections) */
+.js-motion [data-bg="dots"]::before {
+  inset: -32px;
+  background: radial-gradient(circle, rgba(36, 133, 72, 0.3) 1.3px, transparent 1.8px) 0 0 / 32px 32px;
+  -webkit-mask-image: radial-gradient(ellipse 65% 55% at 92% 8%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse 65% 55% at 92% 8%, #000 0%, transparent 75%);
+  animation: m-drift-32 45s linear infinite;
+}
+@keyframes m-drift-32 { to { transform: translate3d(32px, 32px, 0); } }
+
+/* hatch — architectural section hatching, fading in from the right */
+.js-motion [data-bg="hatch"]::before {
+  inset: -28px;
+  background: repeating-linear-gradient(135deg, rgba(23, 34, 26, 0.055) 0 1px, transparent 1px 14px);
+  -webkit-mask-image: linear-gradient(90deg, transparent 35%, #000 100%);
+  mask-image: linear-gradient(90deg, transparent 35%, #000 100%);
+  animation: m-drift-hatch 14s linear infinite;
+}
+@keyframes m-drift-hatch { to { transform: translate3d(9.9px, 9.9px, 0); } }
+
+/* glow — soft ambient light for the Responsible Development section */
+.js-motion [data-bg="glow"]::before {
+  inset: -20%;
+  background:
+    radial-gradient(38% 42% at 24% 42%, rgba(36, 133, 72, 0.15), transparent 70%),
+    radial-gradient(30% 34% at 78% 62%, rgba(244, 119, 33, 0.09), transparent 70%);
+  animation: m-float 20s ease-in-out infinite alternate;
+}
+@keyframes m-float { to { transform: translate3d(4%, -3%, 0) scale(1.08); } }
+
+/* CTA band: orange rule draws across the top, buildings rise at the right */
+.js-motion .page-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--m-orange);
+  transform-origin: left center;
+  pointer-events: none;
+}
+.js-motion .page-cta:not(.cta-in)::after { transform: scaleX(0); }
+.js-motion .page-cta.cta-in::after { animation: m-line 1.3s var(--m-out) 0.15s backwards; }
+
+
+/* =========================================================
+   9.8 — FINAL CTA: ARCHITECTURAL SKYLINE ANIMATION
+   Preserves original .m-bar buildings and .is-in observer.
+   ========================================================= */
+
+.page-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* Keep CTA content above the decorative skyline */
+.page-cta > div,
+.page-cta > .button-primary {
+  position: relative;
+  z-index: 2;
+}
+
+/* Skyline positioning */
+.m-sky {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: min(470px, 40vw);
+  height: auto;
+  z-index: 0;
+  opacity: 0.28;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Original building animation — DO NOT REMOVE */
+.js-motion .m-sky:not(.is-in) .m-bar {
+  scale: 1 0;
+  transform-origin: 50% 100%;
+}
+
+.js-motion .m-sky.is-in .m-bar {
+  animation: m-grow 1.1s var(--m-out) backwards;
+  animation-delay: calc(0.25s + var(--n, 0) * 90ms);
+}
+
+/* Windows illuminate after the buildings rise */
+.m-sky-window {
+  fill: #f47721;
+  opacity: 0;
+}
+
+.js-motion .m-sky.is-in .m-sky-window {
+  animation: m-sky-window-on 0.6s ease forwards;
+  animation-delay: calc(1.1s + var(--w, 0) * 35ms);
+}
+
+/* Infrastructure and road lines */
+.m-sky-road,
+.m-sky-road-detail,
+.m-sky-road-marking,
+.m-sky-connection {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 500;
+  stroke-dashoffset: 500;
+}
+
+.js-motion .m-sky.is-in .m-sky-road {
+  animation: m-sky-draw 1.3s ease forwards 1.4s;
+}
+
+.js-motion .m-sky.is-in .m-sky-road-detail {
+  animation: m-sky-draw 1.1s ease forwards 1.6s;
+}
+
+.js-motion .m-sky.is-in .m-sky-road-marking {
+  animation: m-sky-draw 1.1s ease forwards 1.8s;
+}
+
+.js-motion .m-sky.is-in .m-sky-connection {
+  animation: m-sky-draw 1.2s ease forwards 1.9s;
+}
+
+/* CTA content entrance */
+.js-motion .page-cta.cta-in > div,
+.js-motion .page-cta.cta-in > .button-primary {
+  animation: m-cta-content-in 0.8s ease both;
+}
+
+.js-motion .page-cta.cta-in > div {
+  animation-delay: 1.1s;
+}
+
+.js-motion .page-cta.cta-in > .button-primary {
+  animation-delay: 1.5s;
+}
+
+/* Button arrow interaction */
+@media (hover: hover) and (pointer: fine) {
+  .page-cta .button-primary:hover span {
+    translate: 5px -3px;
+  }
+}
+
+/* Keyframes */
+@keyframes m-sky-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes m-sky-window-on {
+  to {
+    opacity: 0.9;
+  }
+}
+
+@keyframes m-cta-content-in {
+  from {
+    opacity: 0;
+    translate: 0 18px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+
+.js-motion .m-sky:not(.is-in) .m-bar { scale: 1 0; }
+.js-motion .m-sky.is-in .m-bar {
+  animation: m-grow 1.1s var(--m-out) backwards;
+  animation-delay: calc(0.25s + var(--n, 0) * 90ms);
+}
+
+/* Stats: a moving road centre-line under the figures (215+ km of roads) */
+.js-motion .stats-inline { position: relative; }
+.js-motion .stats-inline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--m-orange) 0 18px, transparent 18px 34px);
+  background-size: 34px 2px;
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, transparent 88%);
+  mask-image: linear-gradient(90deg, #000 0%, transparent 88%);
+  animation: m-road 1.8s linear infinite;
+  pointer-events: none;
+}
+@keyframes m-road { to { background-position: 34px 0; } }
+
+/* "Scroll to explore" arrow */
+.m-bob { display: inline-block; font-style: normal; animation: m-bob 1.8s ease-in-out infinite; }
+@keyframes m-bob { 50% { translate: 0 4px; } }
+
+/* ---------- 5. Page-hero line art --------------------------------------- */
+.m-art {
+  position: absolute;
+  right: clamp(8px, 4vw, 70px);
+  bottom: 0;
+  width: clamp(260px, 30vw, 440px);
+  height: auto;
+  z-index: -1;
+  pointer-events: none;
+  color: var(--m-green);
+  opacity: 0.5;
+  overflow: visible;
+}
+.m-art .m-s { stroke-dasharray: 1 2; stroke-dashoffset: 0; }
+.js-motion .m-art:not(.is-in) .m-s { stroke-dashoffset: 1; }
+.js-motion .m-art.is-in .m-s {
+  animation: m-draw 2.2s var(--m-ease) backwards;
+  animation-delay: calc(0.35s + var(--k, 0) * 45ms);
+}
+.js-motion .m-art:not(.is-in) .m-f { opacity: 0; }
+.js-motion .m-art.is-in .m-f { animation: m-fade 1.2s ease 1.7s backwards; }
+@keyframes m-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes m-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.m-win path { stroke-width: 4; stroke-dasharray: 6 8; opacity: 0.38; }
+.m-idle { transform-box: view-box; }
+
+/* crane */
+.m-jib { transform-origin: 150px 70px; animation: m-sway 11s ease-in-out infinite alternate; }
+.m-cable { transform-origin: 250px 70px; animation: m-cable 8s ease-in-out infinite alternate; }
+.m-load { animation: m-load 8s ease-in-out infinite alternate; }
+@keyframes m-sway { from { rotate: -1.5deg; } to { rotate: 1.5deg; } }
+@keyframes m-cable { from { scale: 1 1; } to { scale: 1 0.45; } }
+@keyframes m-load { from { translate: 0 0; } to { translate: 0 -44px; } }
+
+/* excavator digging cycle */
+.m-boom { transform-origin: 300px 334px; animation: m-boom 7s ease-in-out infinite alternate; }
+.m-stick { transform-origin: 234px 252px; animation: m-stick 7s ease-in-out infinite alternate; }
+.m-bucket { transform-origin: 145px 323px; animation: m-bucket 7s ease-in-out infinite alternate; }
+@keyframes m-boom { from { rotate: -2deg; } to { rotate: 5deg; } }
+@keyframes m-stick { from { rotate: -10deg; } to { rotate: 12deg; } }
+@keyframes m-bucket { from { rotate: -18deg; } to { rotate: 26deg; } }
+
+/* windows switching on in the skyline */
+.m-lit { animation: m-blink 6s ease-in-out infinite; animation-delay: calc(var(--b, 0) * -1s); }
+@keyframes m-blink { 0%, 100% { opacity: 0.1; } 45%, 65% { opacity: 1; } }
+
+/* a figure climbing the career steps */
+.m-climb { animation: m-climb 12s ease-in-out infinite; opacity: 0; }
+@keyframes m-climb {
+  0% { translate: 65px 362px; opacity: 0; }
+  5% { translate: 65px 362px; opacity: 1; }
+  12% { translate: 65px 362px; }
+  22% { translate: 135px 330px; }
+  34% { translate: 205px 298px; }
+  46% { translate: 275px 266px; }
+  58% { translate: 345px 234px; }
+  70% { translate: 415px 202px; }
+  82% { translate: 470px 170px; opacity: 1; }
+  93% { translate: 470px 170px; opacity: 1; }
+  100% { translate: 470px 170px; opacity: 0; }
+}
+
+/* contact map: pulsing pin + travelling route */
+.m-pulse { transform-origin: 302px 228px; vector-effect: non-scaling-stroke; animation: m-pulse 3.2s ease-out infinite; }
+@keyframes m-pulse { 0% { scale: 1; opacity: 0.9; } 100% { scale: 5; opacity: 0; } }
+.m-flow { animation: m-flow 1.4s linear infinite; }
+@keyframes m-flow { to { stroke-dashoffset: -24; } }
+
+/* ---------- 6. Interaction polish --------------------------------------- */
+.site-header { transition: box-shadow 0.3s ease; }
+.site-header.is-scrolled { box-shadow: 0 8px 28px rgba(17, 26, 17, 0.09); }
+
+.button-primary, .button-dark {
+  transition: translate 0.3s var(--m-ease), box-shadow 0.3s ease, filter 0.25s ease;
+}
+.button-primary:active, .button-dark:active { scale: 0.98; }
+.button-primary span, .button-dark span, .text-link span, .header-cta span, .arrow-link span, .home-project-arrow {
+  display: inline-block;
+  transition: translate 0.3s var(--m-ease);
+}
+
+.contact-form-static input, .contact-form-static select, .contact-form-static textarea {
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.contact-form-static input:focus, .contact-form-static select:focus, .contact-form-static textarea:focus {
+  border-color: var(--m-orange);
+  box-shadow: 0 0 0 3px rgba(244, 119, 33, 0.18);
+  outline: none;
+}
+.contact-form-static input:user-invalid,
+.contact-form-static select:user-invalid,
+.contact-form-static textarea:user-invalid { border-color: #b3261e; }
+.project-filters button { transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease; }
+
+[data-form-result]:not([hidden]) { animation: m-rise 0.6s var(--m-out) backwards; }
+.js-motion .project-detail-panel:not([hidden]) { animation: m-rise 0.8s var(--m-out) backwards; }
+
+.stats-inline strong, .projects-highlight strong, .fleet-spec-grid strong { font-variant-numeric: tabular-nums; }
+::selection { background: rgba(244, 119, 33, 0.28); }
+
+/* Hover effects only where hover exists (keeps touch screens calm) */
+@media (hover: hover) and (pointer: fine) {
+  .button-primary:hover, .button-dark:hover { translate: 0 -2px; box-shadow: 0 10px 24px rgba(244, 119, 33, 0.28); }
+  .button-dark:hover { box-shadow: 0 10px 24px rgba(23, 34, 26, 0.25); }
+  .button-primary:hover span, .button-dark:hover span, .text-link:hover span, .header-cta:hover span,
+  .arrow-link:hover span, .home-project-card:hover .home-project-arrow { translate: 3px -3px; }
+
+  .values-grid article, .fleet-spec-grid article, .upcoming-card, .home-project-card {
+    transition: transform 0.4s var(--m-ease), box-shadow 0.4s ease;
+  }
+  .values-grid article:hover, .fleet-spec-grid article:hover, .upcoming-card:hover, .home-project-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 16px 36px rgba(20, 35, 26, 0.1);
+  }
+  .sector-card { transition: background-color 0.3s ease; }
+  .sector-card:hover { background-color: rgba(255, 255, 255, 0.6); }
+  .sector-symbol i { transition: scale 0.5s var(--m-ease); }
+  .sector-card:hover .sector-symbol i { scale: 1 1.14; }
+
+  .fleet-row:hover b { translate: 10px 0; }
+  .fleet-row:hover i { translate: 4px -4px; }
+  .location-list > div { transition: background-color 0.3s ease; }
+  .location-list > div:hover { background-color: rgba(36, 133, 72, 0.06); }
+
+  .vertical-image { overflow: hidden; }
+  .vertical-image img { transition: transform 1s var(--m-ease); }
+  .vertical-image:hover img { transform: scale(1.04); }
+  .site-footer button { transition: translate 0.3s var(--m-ease); }
+  .site-footer button:hover { translate: 0 -3px; }
+}
+
+/* ---------- 7. Responsive ----------------------------------------------- */
+.js-motion .section { overflow-x: clip; }
+@media (max-width: 1100px) {
+  .m-art { opacity: 0.28; }
+}
+@media (max-width: 720px) {
+  :root { --m-sx: 0px; }
+  .m-art { display: none; }
+
+  .m-sky {
+    display: block;
+    width: 220px;
+    opacity: 0.14;
+    right: -15px;
+  }
+  .js-motion [data-m="slide"]:not(.is-in) { translate: 0 26px; }
+  .js-motion [data-m="row"]:not(.is-in) { translate: 0 16px; }
+  @keyframes m-row {
+    from { opacity: 0; translate: 0 16px; }
+    to { opacity: 1; translate: 0 0; }
+  }
+  .js-motion [data-bg="grid"]::after { display: none; }
+}
+
+/* ---------- 8. Reduced motion & print: everything visible, nothing moves - */
+@media (prefers-reduced-motion: reduce) {
+  html.m-pre .home-content > *, html.m-pre .page-hero > * { opacity: 1 !important; animation: none !important; }
+  [data-m], [data-m] *, [data-scrub], [data-scrub] *, .m-sky, .m-sky * {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    translate: none !important;
+    scale: none !important;
+    rotate: none !important;
+    clip-path: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .m-art, .m-sky { display: none !important; }
+  [data-bg]::before, [data-bg]::after, .stats-inline::after, .m-bob { animation: none !important; }
+  [data-bg="grid"]::after { display: none; }
+}
+@media print {
+  html.m-pre .home-content > *, html.m-pre .page-hero > * { opacity: 1 !important; animation: none !important; }
+  [data-m], [data-m] * {
+    animation: none !important;
+    opacity: 1 !important;
+    translate: none !important;
+    scale: none !important;
+    rotate: none !important;
+    clip-path: none !important;
+  }
+  .m-art, .m-sky, [data-bg]::before, [data-bg]::after { display: none !important; }
+}
